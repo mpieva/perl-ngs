@@ -11,8 +11,8 @@ use strict;
 
 # Reads a file listing informative sites.  Sites must actual sites
 # (start == end), with one-based(!) coordinates.
-sub read_sites {
-    my ($targetfile, $one_based) = @_;
+sub read_sites($) {
+    my ($targetfile) = @_;
     my ($counter, $interval, %target, @labels, %nlabels, %clabels, $total);
     open TARGETS, $targetfile or die "could not read $targetfile: $?!\n";
     print STDERR "[sites.pm] Reading sites\n";
@@ -22,14 +22,13 @@ sub read_sites {
         $counter++; $interval++; if ($interval == 100_000) {print STDERR "\r$counter"; $interval = 0}
         chomp $line;
         my ($chromosome, $start, $end, $anc_state, $der_state, $lineage) = split /\t/, $line;
-        $start++ unless defined $one_based; #make 0-based bed file 1-based
         die "start and end should be equal for _sites_: $chromosome $start $end\n" unless $end == $start;
         $target{$chromosome} = [] unless $target{$chromosome} ;
         unless( exists $nlabels{$lineage} ) {
             $nlabels{$lineage} = scalar @labels ;
             push @labels, $lineage ;
         }
-        push @{$target{$chromosome}}, (pack "La1a1C", $start, uc $anc_state, uc $der_state, $nlabels{$lineage});
+        push @{$target{$chromosome}}, (pack "La1a1C", $start-1, uc $anc_state, uc $der_state, $nlabels{$lineage});
         $clabels{$lineage}++ ;
         $total++ ;
     }
@@ -44,7 +43,7 @@ sub read_sites {
 }
 
 # Extracts a hash table of positions overlapping an interval.  
-sub target_positions {
+sub target_positions($$$) {
     my ($posns, $start, $end) = @_;
     return () unless defined $posns ;
 

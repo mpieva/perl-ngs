@@ -11,8 +11,8 @@ use strict;
 
 # Reads a BED file containing regions.  Being a BED file, coordinates
 # are zero-based half-open intervals.
-sub read_track {
-    my ($targetfile, $one_based) = @_;
+sub read_track($) {
+    my ($targetfile) = @_;
     my ($counter, $interval, %target);
     open TARGETS, $targetfile or die "could not read $targetfile: $?!\n";
     print STDERR "[track.pm] Reading track\n";
@@ -22,7 +22,6 @@ sub read_track {
         $counter++; $interval++; if ($interval == 100_000) {print STDERR "\r$counter"; $interval = 0}
         chomp $line;
         my ($chromosome, $start, $end) = split /\t/, $line;
-        $start++ unless defined $one_based; #make 0-based bed file 1-based
         die "target end must be after target start: $chromosome $start $end\nForgot -one?" unless $end >= $start;
         $target{$chromosome} = [] unless $target{$chromosome} ;
         push @{$target{$chromosome}}, (pack "LL", $start, $end);
@@ -37,7 +36,7 @@ sub read_track {
     return \%target ;
 }
 
-sub contains {
+sub contains($$) {
     my ($posns, $pos) = @_;
     return 0 unless defined $posns ;
 
