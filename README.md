@@ -18,3 +18,11 @@ Generation Sequencing data in Perl.  So far:
 * **Bed.pm**:      Very small Bed parser and printer, interfaces easily to
                    Bam.pm.  Probably only useful when translating between these
                    formats.
+
+phylogeny\_from\_bam
+--------------------
+
+A tool that implements a restricted form of parsimony analysis to place
+an ancient sample into an otherwise fixed phylogeny.  It uses
+**sites.pm** and **track.pm**, or in a more compact but less readable
+alternative, **uarray.pm**.  It also shows how to work with **Bam.pm**.
