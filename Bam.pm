@@ -1,4 +1,4 @@
-# 100% pure Perl reader for BAM
+# 100% pure Perl reader & writer for BAM
 # (Why?  Because I can, and because a dependency on libbam isn't really
 # helpful here.  Also because reading the samtools source hurt.)
 #
@@ -6,6 +6,45 @@
 #          There is support for optional fields of array type now, but
 #          it's untested.  Testing is a bit hard right now, since there
 #          are no tools that actually produce such fields.
+#        - access the index (BAI or CSI) for selective reading of
+#          regions
+
+package Bam ;
+
+require Exporter ;
+@ISA = qw( Exporter ) ;
+@EXPORT_OK = qw( qual_to_fastq qual_from_fastq cigarOp cigarNum mkCigar) ;
+
+sub qual_to_fastq($) {
+    my $s = shift ;
+    for( my $i = 0 ; $i != length $s ; ++$i )
+    {
+        substr( $s, $i, 1 ) = chr( ord( substr $s, $i, 1 ) + 33 ) ;
+    }
+    return $s ;
+}
+
+sub qual_from_fastq($) {
+    my $s = shift ;
+    for( my $i = 0 ; $i != length $s ; ++$i )
+    {
+        substr( $s, $i, 1 ) = chr( ord( substr $s, $i, 1 ) - 33 ) ;
+    }
+    return $s ;
+}
+
+sub cigarOp($)  { substr( 'MIDNSHPM', $_[0] & 0x7, 1 ) ; }
+sub cigarNum($) { $_[0] >> 4 ; }
+
+sub mkCigar($$) { 
+    my ($num,$op) = @_ ;
+    ( $op == 'M' ? 0 : $op == 'I' ? 1 :
+      $op == 'D' ? 2 : $op == 'N' ? 3 :
+      $op == 'S' ? 4 : $op == 'H' ? 5 :
+      $op == 'P' ? 6 : 7 ) | ($num << 4) ;
+}
+      
+1;
 
 package Bam::In ;
 
@@ -27,7 +66,7 @@ sub unpack_array {
 #        - double (code 'd') is supported when reading , but will not be
 #          distinguishable from float
 #        - code 'H' is ill-specified, apparently it's the same as Z with a hint
-#          to print it in hex in SAM
+#          to print it in hex in SAM.  we treat it just like Z.
 
 my %xxtype = ( 
     'c' => sub { unpack_array( "c", @_ ) },
@@ -134,7 +173,8 @@ sub new {
     } ;
 
     die "not enough magic" if get_string( $bam, 4 ) ne "BAM\1" ;
-    my $hdr_text = get_string( $bam, get_int_32( $bam ) ) ;
+    $bam->{header} = get_string( $bam, get_int_32( $bam ) ) ;
+
     my $nrefs = get_int_32( $bam ) ;
     for (1..$nrefs)
     {
@@ -224,6 +264,45 @@ sub fetch {
 
 sub dequeue { return fetch( @_ ) ; }
 
+sub isPaired($)         { $_[0]->{flag} &    1 ; }
+sub isProperlyPaired($) { $_[0]->{flag} &    2 ; }
+sub isUnmapped($)       { $_[0]->{flag} &    4 ; }
+sub isMateUnmapped($)   { $_[0]->{flag} &    8 ; }
+sub isReversed($)       { $_[0]->{flag} &   16 ; }
+sub isMateReversed($)   { $_[0]->{flag} &   32 ; }
+sub isFirstMate($)      { $_[0]->{flag} &   64 ; }
+sub isSecondMate($)     { $_[0]->{flag} &  128 ; }
+sub isSecondary($)      { $_[0]->{flag} &  256 ; }
+sub isLowQuality($)     { $_[0]->{flag} &  512 ; }
+sub isDuplicate($)      { $_[0]->{flag} & 1024 ; }
+sub isSupplementary($)  { $_[0]->{flag} & 2048 ; }
+
+sub setPaired($)         { $_[0]->{flag} |=    1 ; }
+sub setProperlyPaired($) { $_[0]->{flag} |=    2 ; }
+sub setUnmapped($)       { $_[0]->{flag} |=    4 ; }
+sub setMateUnmapped($)   { $_[0]->{flag} |=    8 ; }
+sub setReversed($)       { $_[0]->{flag} |=   16 ; }
+sub setMateReversed($)   { $_[0]->{flag} |=   32 ; }
+sub setFirstMate($)      { $_[0]->{flag} |=   64 ; }
+sub setSecondMate($)     { $_[0]->{flag} |=  128 ; }
+sub setSecondary($)      { $_[0]->{flag} |=  256 ; }
+sub setLowQuality($)     { $_[0]->{flag} |=  512 ; }
+sub setDuplicate($)      { $_[0]->{flag} |= 1024 ; }
+sub setSupplementary($)  { $_[0]->{flag} |= 2048 ; }
+
+sub clearPaired($)         { $_[0]->{flag} &=    ~1 ; }
+sub clearProperlyPaired($) { $_[0]->{flag} &=    ~2 ; }
+sub clearUnmapped($)       { $_[0]->{flag} &=    ~4 ; }
+sub clearMateUnmapped($)   { $_[0]->{flag} &=    ~8 ; }
+sub clearReversed($)       { $_[0]->{flag} &=   ~16 ; }
+sub clearMateReversed($)   { $_[0]->{flag} &=   ~32 ; }
+sub clearFirstMate($)      { $_[0]->{flag} &=   ~64 ; }
+sub clearSecondMate($)     { $_[0]->{flag} &=  ~128 ; }
+sub clearSecondary($)      { $_[0]->{flag} &=  ~256 ; }
+sub clearLowQuality($)     { $_[0]->{flag} &=  ~512 ; }
+sub clearDuplicate($)      { $_[0]->{flag} &= ~1024 ; }
+sub clearSupplementary($)  { $_[0]->{flag} &= ~2048 ; }
+
 1;
 
 package Bam::Out ;
@@ -233,19 +312,18 @@ use warnings ;
 use IO::Compress::Gzip qw( gzip ) ;
 
 sub new {
-    my( $class, $fh, $refs ) = @_ ;
+    my( $class, $fh, $refs, $header ) = @_ ;
 
     my $self = {
-	fh => $fh,
-	refs => {},
-	buf => join '',
-		pack( "a4 V/a* V", "BAM\1", '', scalar @$refs ),
-		map { pack "V/a* V", $_->[0]."\0", $_->[1] } @$refs 
+        fh => $fh,
+        refs => {},
+        buf => join '',
+                pack( "a4 V/a* V", "BAM\1", $header, scalar @$refs ),
+                map { pack "V/a* V", $_->[0]."\0", $_->[1] } @$refs 
     } ;
     for (0..$#$refs) {
-	$self->{refs}->{$refs->[$_]->[0]} = $_ ;
+        $self->{refs}->{$refs->[$_]->[0]} = $_ ;
     }
-
     return bless( $self, $class ) ;
 }
 
@@ -330,29 +408,6 @@ sub DESTROY {
 }
 
 1 ;
-
-
-package Bam ;
-
-sub qual_to_fastq($) {
-    my $s = shift ;
-    for( my $i = 0 ; $i != length $s ; ++$i )
-    {
-        substr( $s, $i, 1 ) = chr( ord( substr $s, $i, 1 ) + 33 ) ;
-    }
-    return $s ;
-}
-
-sub qual_from_fastq($) {
-    my $s = shift ;
-    for( my $i = 0 ; $i != length $s ; ++$i )
-    {
-        substr( $s, $i, 1 ) = chr( ord( substr $s, $i, 1 ) - 33 ) ;
-    }
-    return $s ;
-}
-
-
 __END__
 
 =head1 NAME
