@@ -13,7 +13,7 @@ package Bam ;
 
 require Exporter ;
 @ISA = qw( Exporter ) ;
-@EXPORT_OK = qw( qual_to_fastq qual_from_fastq cigarOp cigarNum mkCigar) ;
+@EXPORT_OK = qw( qual_to_fastq qual_from_fastq cigarOp cigarNum mkCigar ) ;
 
 sub qual_to_fastq($) {
     my $s = shift ;
@@ -43,6 +43,45 @@ sub mkCigar($$) {
       $op == 'S' ? 4 : $op == 'H' ? 5 :
       $op == 'P' ? 6 : 7 ) | ($num << 4) ;
 }
+
+sub isPaired($)         { $_[0]->{flag} &    1 ; }
+sub isProperlyPaired($) { $_[0]->{flag} &    2 ; }
+sub isUnmapped($)       { $_[0]->{flag} &    4 ; }
+sub isMateUnmapped($)   { $_[0]->{flag} &    8 ; }
+sub isReversed($)       { $_[0]->{flag} &   16 ; }
+sub isMateReversed($)   { $_[0]->{flag} &   32 ; }
+sub isFirstMate($)      { $_[0]->{flag} &   64 ; }
+sub isSecondMate($)     { $_[0]->{flag} &  128 ; }
+sub isSecondary($)      { $_[0]->{flag} &  256 ; }
+sub isLowQuality($)     { $_[0]->{flag} &  512 ; }
+sub isDuplicate($)      { $_[0]->{flag} & 1024 ; }
+sub isSupplementary($)  { $_[0]->{flag} & 2048 ; }
+
+sub setPaired($)         { $_[0]->{flag} |=    1 ; }
+sub setProperlyPaired($) { $_[0]->{flag} |=    2 ; }
+sub setUnmapped($)       { $_[0]->{flag} |=    4 ; }
+sub setMateUnmapped($)   { $_[0]->{flag} |=    8 ; }
+sub setReversed($)       { $_[0]->{flag} |=   16 ; }
+sub setMateReversed($)   { $_[0]->{flag} |=   32 ; }
+sub setFirstMate($)      { $_[0]->{flag} |=   64 ; }
+sub setSecondMate($)     { $_[0]->{flag} |=  128 ; }
+sub setSecondary($)      { $_[0]->{flag} |=  256 ; }
+sub setLowQuality($)     { $_[0]->{flag} |=  512 ; }
+sub setDuplicate($)      { $_[0]->{flag} |= 1024 ; }
+sub setSupplementary($)  { $_[0]->{flag} |= 2048 ; }
+
+sub clearPaired($)         { $_[0]->{flag} &=    ~1 ; }
+sub clearProperlyPaired($) { $_[0]->{flag} &=    ~2 ; }
+sub clearUnmapped($)       { $_[0]->{flag} &=    ~4 ; }
+sub clearMateUnmapped($)   { $_[0]->{flag} &=    ~8 ; }
+sub clearReversed($)       { $_[0]->{flag} &=   ~16 ; }
+sub clearMateReversed($)   { $_[0]->{flag} &=   ~32 ; }
+sub clearFirstMate($)      { $_[0]->{flag} &=   ~64 ; }
+sub clearSecondMate($)     { $_[0]->{flag} &=  ~128 ; }
+sub clearSecondary($)      { $_[0]->{flag} &=  ~256 ; }
+sub clearLowQuality($)     { $_[0]->{flag} &=  ~512 ; }
+sub clearDuplicate($)      { $_[0]->{flag} &= ~1024 ; }
+sub clearSupplementary($)  { $_[0]->{flag} &= ~2048 ; }
       
 1;
 
@@ -259,49 +298,10 @@ sub fetch {
         $aln{score} = $opt_fields{AS} ;
     }
 
-    return \%aln ;
+    return bless( \%aln, "Bam" ) ;
 }
 
 sub dequeue { return fetch( @_ ) ; }
-
-sub isPaired($)         { $_[0]->{flag} &    1 ; }
-sub isProperlyPaired($) { $_[0]->{flag} &    2 ; }
-sub isUnmapped($)       { $_[0]->{flag} &    4 ; }
-sub isMateUnmapped($)   { $_[0]->{flag} &    8 ; }
-sub isReversed($)       { $_[0]->{flag} &   16 ; }
-sub isMateReversed($)   { $_[0]->{flag} &   32 ; }
-sub isFirstMate($)      { $_[0]->{flag} &   64 ; }
-sub isSecondMate($)     { $_[0]->{flag} &  128 ; }
-sub isSecondary($)      { $_[0]->{flag} &  256 ; }
-sub isLowQuality($)     { $_[0]->{flag} &  512 ; }
-sub isDuplicate($)      { $_[0]->{flag} & 1024 ; }
-sub isSupplementary($)  { $_[0]->{flag} & 2048 ; }
-
-sub setPaired($)         { $_[0]->{flag} |=    1 ; }
-sub setProperlyPaired($) { $_[0]->{flag} |=    2 ; }
-sub setUnmapped($)       { $_[0]->{flag} |=    4 ; }
-sub setMateUnmapped($)   { $_[0]->{flag} |=    8 ; }
-sub setReversed($)       { $_[0]->{flag} |=   16 ; }
-sub setMateReversed($)   { $_[0]->{flag} |=   32 ; }
-sub setFirstMate($)      { $_[0]->{flag} |=   64 ; }
-sub setSecondMate($)     { $_[0]->{flag} |=  128 ; }
-sub setSecondary($)      { $_[0]->{flag} |=  256 ; }
-sub setLowQuality($)     { $_[0]->{flag} |=  512 ; }
-sub setDuplicate($)      { $_[0]->{flag} |= 1024 ; }
-sub setSupplementary($)  { $_[0]->{flag} |= 2048 ; }
-
-sub clearPaired($)         { $_[0]->{flag} &=    ~1 ; }
-sub clearProperlyPaired($) { $_[0]->{flag} &=    ~2 ; }
-sub clearUnmapped($)       { $_[0]->{flag} &=    ~4 ; }
-sub clearMateUnmapped($)   { $_[0]->{flag} &=    ~8 ; }
-sub clearReversed($)       { $_[0]->{flag} &=   ~16 ; }
-sub clearMateReversed($)   { $_[0]->{flag} &=   ~32 ; }
-sub clearFirstMate($)      { $_[0]->{flag} &=   ~64 ; }
-sub clearSecondMate($)     { $_[0]->{flag} &=  ~128 ; }
-sub clearSecondary($)      { $_[0]->{flag} &=  ~256 ; }
-sub clearLowQuality($)     { $_[0]->{flag} &=  ~512 ; }
-sub clearDuplicate($)      { $_[0]->{flag} &= ~1024 ; }
-sub clearSupplementary($)  { $_[0]->{flag} &= ~2048 ; }
 
 1;
 
@@ -469,13 +469,43 @@ $input->fetch().
 
 =item $fastq_string = Bam::qual_to_fastq($rec->{qual})
 
-Convert the raw quality values in a BAM record into a string suitable
+Converts the raw quality values in a BAM record into a string suitable
 for dumping into a FASTQ file.
 
 =item $rec->{qual} = Bam::qual_from_fastq($fastq_string)
 
-Convert a quality string obtained from a FASTQ file into the raw
+Converts a quality string obtained from a FASTQ file into the raw
 quality values needed in a BAM record.
+
+=item Bam::cigarOp $rec->{cigar}->[i]
+
+Extracts the operation from an entry in the cigar string, which will be
+one of the letters 'MIDNSHPM'.
+
+=item Bam::cigarNum $rec->{cigar}->[i]
+
+Extracts the length from an entry in the cigar string.
+
+=item $rec->{cigar}->[i] = Bam::mkCigar( num, op )
+
+Encodes a cigar operation and number into the format required in BAM
+files.
+
+=item isPaired $rec
+
+Returns whether the record is flagged as paired.  Similar methods
+exist for the other flags:  ProperlyPaired, Unmapped, MateUnmapped,
+Reversed, MateReversed, FirstMate, SecondMate, Secondary, LowQuality,
+Duplicate, Supplementary.
+
+=item setPaired $rec
+
+Flags a record as paired.  Similar methods exist for the other flags.
+
+=item clearPaired $rec
+
+Removes the paired flag from the record.  Similar methods exist for the
+other flags.
 
 =back
 

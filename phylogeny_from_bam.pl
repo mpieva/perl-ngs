@@ -9,7 +9,7 @@ use File::Basename;
 
 use lib dirname($0);
 use uarray qw( read_sites read_track contains target_positions ) ;
-use Bam;
+use Bam qw( cigarOp cigarNum ) ;
 
 my ($help, $informative_sites, $sample_sites, $exclude_damage, $track, $bq_filter, $relaxed, $minlength, $maxlength);
 my $mapqual = 0;
@@ -41,8 +41,8 @@ print STDERR "reading bam file...\n";
 my ($counter, $interval) = (0, 0);
 while (my $rec = $bam->fetch()) {
     $interval++; if ($interval == 100_000) {print STDERR "\r$rec->{rname}\t$rec->{pos}\t\t"; $interval = 0;}
-    next if $rec->{mapq} < $mapqual ;
-    next if length $rec->{seq} < $minlength ;
+    next if defined $mapqual && $rec->{mapq} < $mapqual ;
+    next if defined $minlength && length $rec->{seq} < $minlength ; 
     next if defined $maxlength && length $rec->{seq} > $maxlength ;
 
     die "no MD field seen in\n $rec->{qname}\n" unless $rec->{opt_fields}->{MD};
@@ -55,7 +55,7 @@ while (my $rec = $bam->fetch()) {
         my $type = cigarOp $_ ;
 
         next if $number == 0;
-        if ($type == 'M') {
+        if ($type eq 'M') {
             foreach (1..$number) {
                 $genomic_position++;
                 $rec->{seq} =~ s/^(.)// or die "parsing error in cigar field\n";
@@ -98,12 +98,12 @@ while (my $rec = $bam->fetch()) {
                     $stats{"final"}++;
                 }
             }
-        } elsif ($type == 'I') {
+        } elsif ($type eq 'I') {
             foreach (1..$number) {
                 $rec->{seq} =~ s/^.// or die "parsing error2 in cigar field\n";
                 $rec->{qual} = substr($rec->{qual},1);
             }
-        } elsif ($type == 'D') {
+        } elsif ($type eq 'D') {
             $genomic_position += $number ;
         }
     }
