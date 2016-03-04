@@ -49,7 +49,7 @@ while (my $rec = $bam->fetch()) {
     my $end = $rec->{pos} + ($rec->{cigar} ? $rec->{alnlength} : length $rec->{seq}) ;
     my %target_positions = target_positions($sites->{$rec->{rname}},$rec->{pos},$end);
     next unless %target_positions ;
-    my $genomic_position = $rec->{pos};
+    my $genomic_position = $rec->{pos}-1;   # so we can increment first, then process
     for (@{$rec->{cigar}}) {
         my $number = cigarNum $_ ;
         my $type = cigarOp $_ ;
